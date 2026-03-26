@@ -63,7 +63,6 @@ class MenuBarController: NSObject {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         updateStatusIcon()
-        statusItem.menu = menu
     }
 
     private func updateStatusIcon() {
@@ -138,6 +137,7 @@ class MenuBarController: NSObject {
             keyEquivalent: "q"
         )
         menu.addItem(quitItem)
+        statusItem.menu = menu
     }
 
     private func buildVolumeMenu() -> NSMenu {
