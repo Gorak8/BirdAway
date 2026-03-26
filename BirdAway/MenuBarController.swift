@@ -30,8 +30,8 @@ class MenuBarController: NSObject {
     override init() {
         super.init()
         loadSettings()
-        setupStatusItem()
         buildMenu()
+        setupStatusItem()
         deviceManager.delegate = self
         requestNotificationPermission()
         restoreSelectedDevice()
@@ -257,6 +257,7 @@ class MenuBarController: NSObject {
     @objc private func selectSystemDefault() {
         UserDefaults.standard.removeObject(forKey: "selectedDeviceUID")
         // Rebuild engine to use the system default (no explicit device set)
+        player.resetToSystemDefault()
         refreshOutputDeviceMenu()
     }
 
@@ -371,6 +372,7 @@ extension MenuBarController: AudioDeviceManagerDelegate {
         case .fallback:
             // Clear the saved device; engine will use system default on next play
             UserDefaults.standard.removeObject(forKey: "selectedDeviceUID")
+            player.resetToSystemDefault()
         }
 
         refreshOutputDeviceMenu()
