@@ -81,6 +81,18 @@ class AudioPlayer {
         }
     }
 
+    func resetToSystemDefault() {
+        let wasRunning = engine.isRunning
+        if wasRunning { engine.stop() }
+
+        selectedDeviceUID = nil
+        setupEngine()
+
+        if wasRunning {
+            try? engine.start()
+        }
+    }
+
     // MARK: - Playback
 
     func setSoundFile(_ url: URL) {
@@ -91,11 +103,7 @@ class AudioPlayer {
         guard !isPlaying else { return }
 
         // No custom sound — fall back to a system beep so "Play Now" is always audible
-        guard let url = soundFileURL else {
-            NSSound(named: "Ping")?.play()
-            return
-        }
-
+        let url = soundFileURL ?? URL(fileURLWithPath: "/System/Library/Sounds/Ping.aiff")
         let audioFile = try AVAudioFile(forReading: url)
 
         if !engine.isRunning {
