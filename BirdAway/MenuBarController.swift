@@ -76,6 +76,8 @@ class MenuBarController: NSObject, ManageSoundsDelegate {
 
     func soundListDidChange() {
         soundFilePaths = UserDefaults.standard.stringArray(forKey: "soundFilePaths") ?? []
+        currentSoundIndex = 0
+        UserDefaults.standard.set(0, forKey: "currentSoundIndex")
         updatePlayerSound()
     }
 
