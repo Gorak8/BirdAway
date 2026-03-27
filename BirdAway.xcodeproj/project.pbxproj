@@ -13,6 +13,7 @@
 		D0D0D0D0D0D0D0D0D0D0D004 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0B0B0B0B0B0B0B0B0B0B004 /* AudioPlayer.swift */; };
 		D0D0D0D0D0D0D0D0D0D0D005 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0B0B0B0B0B0B0B0B0B0B005 /* MenuBarController.swift */; };
 		D0D0D0D0D0D0D0D0D0D0D006 /* ManageSoundsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0B0B0B0B0B0B0B0B0B0B008 /* ManageSoundsWindowController.swift */; };
+		D0D0D0D0D0D0D0D0D0D0D007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B0B0B0B0B0B0B0B0B0B0B009 /* Assets.xcassets */; };
 		E0E0E0E0E0E0E0E0E0E0E001 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0C0C0C0C0C0C0C0C0C0C001 /* AppKit.framework */; };
 		E0E0E0E0E0E0E0E0E0E0E002 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0C0C0C0C0C0C0C0C0C0C002 /* AVFoundation.framework */; };
 		E0E0E0E0E0E0E0E0E0E0E003 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0C0C0C0C0C0C0C0C0C0C003 /* CoreAudio.framework */; };
@@ -28,6 +29,7 @@
 		B0B0B0B0B0B0B0B0B0B0B006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B0B0B0B0B0B0B0B0B0B0B007 /* BirdAway.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BirdAway.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0B0B0B0B0B0B0B0B0B0B008 /* ManageSoundsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageSoundsWindowController.swift; sourceTree = "<group>"; };
+		B0B0B0B0B0B0B0B0B0B0B009 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C0C0C0C0C0C0C0C0C0C0C001 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		C0C0C0C0C0C0C0C0C0C0C002 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		C0C0C0C0C0C0C0C0C0C0C003 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
@@ -86,6 +88,7 @@
 				B0B0B0B0B0B0B0B0B0B0B004 /* AudioPlayer.swift */,
 				B0B0B0B0B0B0B0B0B0B0B005 /* MenuBarController.swift */,
 				B0B0B0B0B0B0B0B0B0B0B008 /* ManageSoundsWindowController.swift */,
+				B0B0B0B0B0B0B0B0B0B0B009 /* Assets.xcassets */,
 				B0B0B0B0B0B0B0B0B0B0B006 /* Info.plist */,
 			);
 			path = BirdAway;
@@ -149,6 +152,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D0D0D0D0D0D0D0D0D0D0D007 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,7 +256,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.example.BirdAway";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				PRODUCT_BUNDLE_IDENTIFIER = "io.birdaway.BirdAway";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -270,7 +275,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.example.BirdAway";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				PRODUCT_BUNDLE_IDENTIFIER = "io.birdaway.BirdAway";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
