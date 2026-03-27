@@ -5,11 +5,17 @@
 // writes all required AppIcon sizes into the asset catalog.
 
 import AppKit
-import CoreGraphics
 
 let outputDir = "BirdAway/Assets.xcassets/AppIcon.appiconset"
 
-// (pointSize, scale, filename)
+// Verify we're in the right directory
+guard FileManager.default.fileExists(atPath: outputDir) else {
+    print("ERROR: '\(outputDir)' not found.")
+    print("Run this script from the repo root: cd /path/to/BirdAway && swift make_icon.swift")
+    exit(1)
+}
+
+// (logicalPoints, scale, filename)
 let sizes: [(Int, Int, String)] = [
     (16,  1, "icon_16x16.png"),
     (16,  2, "icon_16x16@2x.png"),
@@ -23,86 +29,96 @@ let sizes: [(Int, Int, String)] = [
     (512, 2, "icon_512x512@2x.png"),
 ]
 
-func renderIcon(pixelSize: Int) -> NSImage {
-    let size = CGFloat(pixelSize)
-    let rect = CGRect(origin: .zero, size: CGSize(width: size, height: size))
+func renderIcon(pixelSize: Int) -> NSImage? {
+    let px = CGFloat(pixelSize)
 
-    let image = NSImage(size: NSSize(width: size, height: size))
-    image.lockFocus()
+    // Off-screen bitmap — no lockFocus needed
+    guard let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: pixelSize,
+        pixelsHigh: pixelSize,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .calibratedRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else { return nil }
 
-    guard let ctx = NSGraphicsContext.current?.cgContext else {
-        image.unlockFocus()
-        return image
+    NSGraphicsContext.saveGraphicsState()
+    guard let gc = NSGraphicsContext(bitmapImageRep: rep) else {
+        NSGraphicsContext.restoreGraphicsState()
+        return nil
     }
+    NSGraphicsContext.current = gc
+    let ctx = gc.cgContext
 
-    // --- Background: sky blue gradient, macOS-style rounded rect ---
-    let radius = size * 0.225          // matches macOS icon corner radius
-    let path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
-    ctx.addPath(path)
+    let rect = CGRect(origin: .zero, size: CGSize(width: px, height: px))
+
+    // --- Rounded-rect clip (macOS icon corner radius ≈ 22.5%) ---
+    let radius = px * 0.225
+    ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
     ctx.clip()
 
-    let topColor    = CGColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1)  // #59C7FA sky blue
-    let bottomColor = CGColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1)  // #007AFF system blue
-    let gradient = CGGradient(
+    // --- Sky-blue gradient background ---
+    let top    = CGColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 1)   // #59C7FA
+    let bottom = CGColor(red: 0.00, green: 0.48, blue: 1.00, alpha: 1)   // #007AFF
+    if let gradient = CGGradient(
         colorsSpace: CGColorSpaceCreateDeviceRGB(),
-        colors: [topColor, bottomColor] as CFArray,
+        colors: [top, bottom] as CFArray,
         locations: [0.0, 1.0]
-    )!
-    ctx.drawLinearGradient(gradient,
-                           start: CGPoint(x: size / 2, y: size),
-                           end:   CGPoint(x: size / 2, y: 0),
-                           options: [])
-
-    // --- Bird SF Symbol, white, centered ---
-    // Symbol point size: ~55% of the canvas, nudged down slightly for visual balance
-    let symbolPt = size * 0.55
-    let config   = NSImage.SymbolConfiguration(pointSize: symbolPt, weight: .medium)
-    if let symbol = NSImage(systemSymbolName: "bird.fill", accessibilityDescription: nil)?
-                        .withSymbolConfiguration(config) {
-        // Tint white
-        symbol.lockFocus()
-        NSColor.white.set()
-        symbol.unlockFocus()
-
-        // Re-render tinted: draw into a new image using sourceAtop blending
-        let tinted = NSImage(size: symbol.size)
-        tinted.lockFocus()
-        symbol.draw(in: NSRect(origin: .zero, size: symbol.size))
-        NSColor.white.withAlphaComponent(1).setFill()
-        NSRect(origin: .zero, size: symbol.size).fill(using: .sourceAtop)
-        tinted.unlockFocus()
-
-        // Center in canvas
-        let symW = tinted.size.width
-        let symH = tinted.size.height
-        let x = (size - symW) / 2
-        let y = (size - symH) / 2 - size * 0.02   // 2% optical drop
-        tinted.draw(in: NSRect(x: x, y: y, width: symW, height: symH))
+    ) {
+        ctx.drawLinearGradient(gradient,
+                               start: CGPoint(x: px / 2, y: px),
+                               end:   CGPoint(x: px / 2, y: 0),
+                               options: [])
     }
 
-    image.unlockFocus()
+    // --- White bird.fill SF Symbol ---
+    // SymbolConfiguration(paletteColors:) is the correct way to tint an SF Symbol.
+    let ptSize = px * 0.55
+    let symConfig = NSImage.SymbolConfiguration(pointSize: ptSize, weight: .medium)
+        .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
+
+    if let symbol = NSImage(systemSymbolName: "bird.fill", accessibilityDescription: nil)?
+                        .withSymbolConfiguration(symConfig) {
+        let sw = symbol.size.width
+        let sh = symbol.size.height
+        let sx = (px - sw) / 2
+        let sy = (px - sh) / 2 - px * 0.02    // slight optical drop
+        symbol.draw(in: NSRect(x: sx, y: sy, width: sw, height: sh))
+    }
+
+    NSGraphicsContext.restoreGraphicsState()
+
+    let image = NSImage(size: NSSize(width: px, height: px))
+    image.addRepresentation(rep)
     return image
 }
 
 func savePNG(_ image: NSImage, to path: String) {
-    guard let tiff = image.tiffRepresentation,
+    guard let tiff   = image.tiffRepresentation,
           let bitmap = NSBitmapImageRep(data: tiff),
-          let png = bitmap.representation(using: .png, properties: [:]) else {
+          let png    = bitmap.representation(using: .png, properties: [:]) else {
         print("  ERROR: could not encode PNG for \(path)")
         return
     }
     do {
         try png.write(to: URL(fileURLWithPath: path))
-        print("  wrote \(path)")
+        print("  ✓ \(path)")
     } catch {
-        print("  ERROR: \(error)")
+        print("  ERROR writing \(path): \(error)")
     }
 }
 
 print("Generating BirdAway app icons…")
 for (points, scale, filename) in sizes {
     let pixels = points * scale
-    let image  = renderIcon(pixelSize: pixels)
-    savePNG(image, to: "\(outputDir)/\(filename)")
+    if let image = renderIcon(pixelSize: pixels) {
+        savePNG(image, to: "\(outputDir)/\(filename)")
+    } else {
+        print("  ERROR: render failed for \(filename)")
+    }
 }
-print("Done. Build the project in Xcode to apply the icon.")
+print("Done. Rebuild in Xcode to apply the icon.")
