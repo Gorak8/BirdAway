@@ -89,6 +89,7 @@ class MenuBarController: NSObject, ManageSoundsDelegate {
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.menu = menu
         updateStatusIcon()
     }
 
@@ -166,7 +167,6 @@ class MenuBarController: NSObject, ManageSoundsDelegate {
             keyEquivalent: "q"
         )
         menu.addItem(quitItem)
-        statusItem.menu = menu
     }
 
     private func buildIntervalMenu() -> NSMenu {
@@ -320,6 +320,7 @@ class MenuBarController: NSObject, ManageSoundsDelegate {
     }
 
     @objc private func playNow() {
+        updatePlayerSound()
         do {
             try player.play()
         } catch {
