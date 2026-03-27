@@ -85,6 +85,7 @@ class AudioPlayer {
         let wasRunning = engine.isRunning
         if wasRunning { engine.stop() }
 
+        isPlaying = false
         selectedDeviceUID = nil
         setupEngine()
 
