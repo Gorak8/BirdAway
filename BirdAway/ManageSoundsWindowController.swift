@@ -64,27 +64,27 @@ class ManageSoundsWindowController: NSWindowController, NSTableViewDataSource, N
         // Buttons
         let addButton = NSButton(title: "+", target: self, action: #selector(addSound))
         addButton.frame = NSRect(x: 20, y: 20, width: 40, height: 24)
-        addButton.autoresizingMask = [.maxXMargin, .maxYMargin]
+        addButton.autoresizingMask = NSView.AutoresizingMask([.maxXMargin, .maxYMargin])
         contentView.addSubview(addButton)
 
         let removeButton = NSButton(title: "-", target: self, action: #selector(removeSound))
         removeButton.frame = NSRect(x: 70, y: 20, width: 40, height: 24)
-        removeButton.autoresizingMask = [.maxXMargin, .maxYMargin]
+        removeButton.autoresizingMask = NSView.AutoresizingMask([.maxXMargin, .maxYMargin])
         contentView.addSubview(removeButton)
 
-        let upButton = NSButton(title: "↑", target: self, action: #selector(moveUp))
+        let upButton = NSButton(title: "↑", target: self, action: #selector(moveSoundUp))
         upButton.frame = NSRect(x: 120, y: 20, width: 40, height: 24)
-        upButton.autoresizingMask = [.maxXMargin, .maxYMargin]
+        upButton.autoresizingMask = NSView.AutoresizingMask([.maxXMargin, .maxYMargin])
         contentView.addSubview(upButton)
 
-        let downButton = NSButton(title: "↓", target: self, action: #selector(moveDown))
+        let downButton = NSButton(title: "↓", target: self, action: #selector(moveSoundDown))
         downButton.frame = NSRect(x: 170, y: 20, width: 40, height: 24)
-        downButton.autoresizingMask = [.maxXMargin, .maxYMargin]
+        downButton.autoresizingMask = NSView.AutoresizingMask([.maxXMargin, .maxYMargin])
         contentView.addSubview(downButton)
 
         let previewButton = NSButton(title: "Preview", target: self, action: #selector(previewSound))
         previewButton.frame = NSRect(x: 220, y: 20, width: 80, height: 24)
-        previewButton.autoresizingMask = [.maxXMargin, .maxYMargin]
+        previewButton.autoresizingMask = NSView.AutoresizingMask([.maxXMargin, .maxYMargin])
         contentView.addSubview(previewButton)
     }
 
@@ -118,7 +118,7 @@ class ManageSoundsWindowController: NSWindowController, NSTableViewDataSource, N
         tableView.reloadData()
     }
 
-    @objc private func moveUp() {
+    @objc private func moveSoundUp() {
         let row = tableView.selectedRow
         guard row > 0 && row < paths.count else { return }
         paths.swapAt(row, row - 1)
@@ -127,7 +127,7 @@ class ManageSoundsWindowController: NSWindowController, NSTableViewDataSource, N
         tableView.selectRowIndexes(IndexSet(integer: row - 1), byExtendingSelection: false)
     }
 
-    @objc private func moveDown() {
+    @objc private func moveSoundDown() {
         let row = tableView.selectedRow
         guard row >= 0 && row < paths.count - 1 else { return }
         paths.swapAt(row, row + 1)
