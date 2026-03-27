@@ -95,7 +95,7 @@ class AudioPlayer {
 
     // MARK: - Playback
 
-    func setSoundFile(_ url: URL) {
+    func setSoundFile(_ url: URL?) {
         soundFileURL = url
     }
 

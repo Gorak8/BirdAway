@@ -7,7 +7,7 @@ enum DisconnectBehavior: String {
     case pause    = "pause"      // Stop the timer until user re-selects a device
 }
 
-class MenuBarController: NSObject {
+class MenuBarController: NSObject, ManageSoundsDelegate {
 
     private var statusItem: NSStatusItem!
     private var menu: NSMenu!
@@ -18,6 +18,7 @@ class MenuBarController: NSObject {
     private var outputDeviceMenu: NSMenu!
     private var volumeMenu: NSMenu!
     private var disconnectMenu: NSMenu!
+    private var rotationItem: NSMenuItem!
 
     private static let intervalPresets = [1, 5, 10, 15, 30, 45, 60, 90, 120]
 
@@ -25,6 +26,11 @@ class MenuBarController: NSObject {
     private var intervalMinutes = 10
     private var timer: Timer?
     private var disconnectBehavior: DisconnectBehavior = .fallback
+    private var isRotationEnabled = false
+    private var soundFilePaths: [String] = []
+    private var currentSoundIndex = 0
+
+    private var manageSoundsWindowController: ManageSoundsWindowController?
 
     private let deviceManager = AudioDeviceManager.shared
     private let player        = AudioPlayer.shared
@@ -46,12 +52,31 @@ class MenuBarController: NSObject {
         if let v = d.value(forKey: "intervalMinutes") as? Int { intervalMinutes = v }
         if let raw = d.string(forKey: "volumeLevel"),
            let vol = VolumeLevel(rawValue: raw) { player.volumeLevel = vol }
-        if let path = d.string(forKey: "soundFilePath") {
-            player.setSoundFile(URL(fileURLWithPath: path))
-        }
         if let raw = d.string(forKey: "disconnectBehavior") {
             disconnectBehavior = DisconnectBehavior(rawValue: raw) ?? .fallback
         }
+
+        isRotationEnabled = d.bool(forKey: "isRotationEnabled")
+        soundFilePaths = d.stringArray(forKey: "soundFilePaths") ?? []
+        currentSoundIndex = d.integer(forKey: "currentSoundIndex")
+
+        updatePlayerSound()
+    }
+
+    private func updatePlayerSound() {
+        if soundFilePaths.isEmpty {
+            player.setSoundFile(nil)
+        } else {
+            if currentSoundIndex >= soundFilePaths.count {
+                currentSoundIndex = 0
+            }
+            player.setSoundFile(URL(fileURLWithPath: soundFilePaths[currentSoundIndex]))
+        }
+    }
+
+    func soundListDidChange() {
+        soundFilePaths = UserDefaults.standard.stringArray(forKey: "soundFilePaths") ?? []
+        updatePlayerSound()
     }
 
     private func restoreSelectedDevice() {
@@ -117,10 +142,15 @@ class MenuBarController: NSObject {
 
         menu.addItem(.separator())
 
-        // Load Sound File
-        let loadItem = NSMenuItem(title: "Load Sound File…", action: #selector(loadSoundFile), keyEquivalent: "")
-        loadItem.target = self
-        menu.addItem(loadItem)
+        // Manage Sounds
+        let manageItem = NSMenuItem(title: "Manage Sounds…", action: #selector(manageSounds), keyEquivalent: "")
+        manageItem.target = self
+        menu.addItem(manageItem)
+
+        // Rotation Toggle
+        rotationItem = NSMenuItem(title: "Rotation: \(isRotationEnabled ? "On" : "Off")", action: #selector(toggleRotation), keyEquivalent: "")
+        rotationItem.target = self
+        menu.addItem(rotationItem)
 
         // Play Now
         let playItem = NSMenuItem(title: "Play Now", action: #selector(playNow), keyEquivalent: "")
@@ -274,19 +304,19 @@ class MenuBarController: NSObject {
         }
     }
 
-    @objc private func loadSoundFile() {
+    @objc private func manageSounds() {
         NSApp.activate(ignoringOtherApps: true)
+        if manageSoundsWindowController == nil {
+            manageSoundsWindowController = ManageSoundsWindowController()
+            manageSoundsWindowController?.delegate = self
+        }
+        manageSoundsWindowController?.showWindow(nil)
+    }
 
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [UTType.audio]
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.title = "Choose a sound file"
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        player.setSoundFile(url)
-        UserDefaults.standard.set(url.path, forKey: "soundFilePath")
+    @objc private func toggleRotation() {
+        isRotationEnabled.toggle()
+        UserDefaults.standard.set(isRotationEnabled, forKey: "isRotationEnabled")
+        rotationItem.title = "Rotation: \(isRotationEnabled ? "On" : "Off")"
     }
 
     @objc private func playNow() {
@@ -300,11 +330,30 @@ class MenuBarController: NSObject {
     // MARK: - Timer
 
     private func startTimer() {
-        let interval = TimeInterval(intervalMinutes * 60)
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            try? self?.player.play()
+        scheduleNextPlayback()
+    }
+
+    private func scheduleNextPlayback() {
+        let baseSeconds = Double(intervalMinutes * 60)
+        let randomFactor = Double.random(in: 0.7...1.3)
+        let jitteredSeconds = baseSeconds * randomFactor
+
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: jitteredSeconds, repeats: false) { [weak self] _ in
+            self?.playNextSound()
+            self?.scheduleNextPlayback()
         }
         RunLoop.main.add(timer!, forMode: .common)
+    }
+
+    private func playNextSound() {
+        updatePlayerSound()
+        try? player.play()
+
+        if isRotationEnabled && !soundFilePaths.isEmpty {
+            currentSoundIndex = (currentSoundIndex + 1) % soundFilePaths.count
+            UserDefaults.standard.set(currentSoundIndex, forKey: "currentSoundIndex")
+        }
     }
 
     private func stopTimer() {
