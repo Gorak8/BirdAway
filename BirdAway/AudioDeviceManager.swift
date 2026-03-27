@@ -80,10 +80,10 @@ class AudioDeviceManager {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        var ref: CFString = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
+        var ref: Unmanaged<CFString>? = nil
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
         guard AudioObjectGetPropertyData(deviceID, &addr, 0, nil, &size, &ref) == noErr else { return nil }
-        return ref as String
+        return ref?.takeRetainedValue() as String?
     }
 
     // MARK: - Change Notifications

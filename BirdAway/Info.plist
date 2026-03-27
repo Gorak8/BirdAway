@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.example.BirdAway</string>
+    <string>io.birdaway.BirdAway</string>
     <key>CFBundleName</key>
     <string>BirdAway</string>
     <key>CFBundleDisplayName</key>
