@@ -19,9 +19,11 @@ enum VolumeLevel: String, CaseIterable {
 class AudioPlayer {
     static let shared = AudioPlayer()
 
-    private var engine       = AVAudioEngine()
-    private var playerNode   = AVAudioPlayerNode()
-    private var isPlaying    = false
+    private var engine     = AVAudioEngine()
+    private var playerNode = AVAudioPlayerNode()
+
+    // FIX: isPlaying is always reset in stop(); no longer gets permanently stuck.
+    private var isPlaying = false
 
     private(set) var soundFileURL: URL?
     private(set) var selectedDeviceUID: String?
@@ -37,12 +39,13 @@ class AudioPlayer {
     // MARK: - Setup
 
     private func setupEngine() {
-        engine    = AVAudioEngine()
+        engine     = AVAudioEngine()
         playerNode = AVAudioPlayerNode()
         engine.attach(playerNode)
         engine.connect(playerNode, to: engine.mainMixerNode, format: nil)
         playerNode.volume = volumeLevel.floatValue
-        // Prepare allocates the AudioUnit so outputNode.audioUnit is accessible
+        // prepare() allocates the AudioUnit so outputNode.audioUnit is accessible
+        // before the engine is started for the first time.
         engine.prepare()
     }
 
@@ -67,6 +70,8 @@ class AudioPlayer {
             UInt32(MemoryLayout<AudioDeviceID>.size)
         )
         guard status == noErr else {
+            // FIX: restart the engine so it's not left stopped on failure
+            if wasRunning { try? engine.start() }
             throw NSError(
                 domain: NSOSStatusErrorDomain,
                 code: Int(status),
@@ -76,6 +81,9 @@ class AudioPlayer {
 
         selectedDeviceUID = device.uid
 
+        // FIX: call prepare() again after stopping so the AudioUnit is ready
+        engine.prepare()
+
         if wasRunning {
             try engine.start()
         }
@@ -84,10 +92,9 @@ class AudioPlayer {
     func resetToSystemDefault() {
         let wasRunning = engine.isRunning
         if wasRunning { engine.stop() }
-
+        isPlaying = false
         selectedDeviceUID = nil
         setupEngine()
-
         if wasRunning {
             try? engine.start()
         }
@@ -99,11 +106,22 @@ class AudioPlayer {
         soundFileURL = url
     }
 
+    /// Plays the current sound file (or system Ping if none loaded).
+    /// Throws if the file is missing or unreadable.
     func play() throws {
         guard !isPlaying else { return }
 
-        // No custom sound — fall back to a system beep so "Play Now" is always audible
-        let url = soundFileURL ?? URL(fileURLWithPath: "/System/Library/Sounds/Ping.aiff")
+        // FIX: validate file existence before attempting to open it
+        let url: URL
+        if let customURL = soundFileURL {
+            guard FileManager.default.fileExists(atPath: customURL.path) else {
+                throw BirdAwayError.soundFileNotFound(customURL)
+            }
+            url = customURL
+        } else {
+            url = URL(fileURLWithPath: "/System/Library/Sounds/Ping.aiff")
+        }
+
         let audioFile = try AVAudioFile(forReading: url)
 
         if !engine.isRunning {
@@ -118,8 +136,9 @@ class AudioPlayer {
     }
 
     func stop() {
-        if playerNode.isPlaying { playerNode.stop() }
-        if engine.isRunning     { engine.stop() }
+        playerNode.stop()
+        if engine.isRunning { engine.stop() }
+        // FIX: always reset isPlaying regardless of playerNode.isPlaying state
         isPlaying = false
     }
 }
@@ -128,11 +147,14 @@ class AudioPlayer {
 
 enum BirdAwayError: LocalizedError {
     case audioUnitUnavailable
+    case soundFileNotFound(URL)
 
     var errorDescription: String? {
         switch self {
         case .audioUnitUnavailable:
             return "The audio engine's output unit is not yet available. Try again after starting playback once."
+        case .soundFileNotFound(let url):
+            return "Sound file not found at \"\(url.lastPathComponent)\". Please load a new file."
         }
     }
 }

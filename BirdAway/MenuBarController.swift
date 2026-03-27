@@ -2,9 +2,21 @@ import AppKit
 import UserNotifications
 import UniformTypeIdentifiers
 
+// MARK: - UserDefaults keys (centralised to prevent typos)
+
+private enum UDKey {
+    static let intervalMinutes   = "intervalMinutes"
+    static let volumeLevel       = "volumeLevel"
+    static let soundFilePath     = "soundFilePath"
+    static let disconnectBehavior = "disconnectBehavior"
+    static let selectedDeviceUID = "selectedDeviceUID"
+}
+
+// MARK: -
+
 enum DisconnectBehavior: String {
     case fallback = "fallback"   // Keep running, use system default
-    case pause    = "pause"      // Stop the timer until user re-selects a device
+    case pause    = "pause"      // Stop the timer until the user re-selects a device
 }
 
 class MenuBarController: NSObject {
@@ -13,11 +25,11 @@ class MenuBarController: NSObject {
     private var menu: NSMenu!
 
     // Menu items requiring dynamic updates
-    private var startStopItem: NSMenuItem!
-    private var intervalMenu:  NSMenu!
+    private var startStopItem:   NSMenuItem!
+    private var intervalMenu:    NSMenu!
     private var outputDeviceMenu: NSMenu!
-    private var volumeMenu: NSMenu!
-    private var disconnectMenu: NSMenu!
+    private var volumeMenu:      NSMenu!
+    private var disconnectMenu:  NSMenu!
 
     private static let intervalPresets = [1, 5, 10, 15, 30, 45, 60, 90, 120]
 
@@ -43,19 +55,25 @@ class MenuBarController: NSObject {
 
     private func loadSettings() {
         let d = UserDefaults.standard
-        if let v = d.value(forKey: "intervalMinutes") as? Int { intervalMinutes = v }
-        if let raw = d.string(forKey: "volumeLevel"),
+        if let v = d.value(forKey: UDKey.intervalMinutes) as? Int { intervalMinutes = v }
+        if let raw = d.string(forKey: UDKey.volumeLevel),
            let vol = VolumeLevel(rawValue: raw) { player.volumeLevel = vol }
-        if let path = d.string(forKey: "soundFilePath") {
-            player.setSoundFile(URL(fileURLWithPath: path))
+        if let path = d.string(forKey: UDKey.soundFilePath) {
+            // FIX: only restore the sound file if it still exists on disk
+            let url = URL(fileURLWithPath: path)
+            if FileManager.default.fileExists(atPath: path) {
+                player.setSoundFile(url)
+            } else {
+                d.removeObject(forKey: UDKey.soundFilePath)
+            }
         }
-        if let raw = d.string(forKey: "disconnectBehavior") {
+        if let raw = d.string(forKey: UDKey.disconnectBehavior) {
             disconnectBehavior = DisconnectBehavior(rawValue: raw) ?? .fallback
         }
     }
 
     private func restoreSelectedDevice() {
-        guard let uid = UserDefaults.standard.string(forKey: "selectedDeviceUID"),
+        guard let uid = UserDefaults.standard.string(forKey: UDKey.selectedDeviceUID),
               let device = deviceManager.deviceWithUID(uid) else { return }
         try? player.setOutputDevice(device)
     }
@@ -69,7 +87,6 @@ class MenuBarController: NSObject {
 
     private func updateStatusIcon() {
         let symbolName = isRunning ? "bird.fill" : "bird"
-        // bird SF Symbol is macOS 13+; fall back to speaker symbol on older systems
         if let img = NSImage(systemSymbolName: symbolName, accessibilityDescription: "BirdAway") {
             statusItem?.button?.image = img
         } else {
@@ -182,9 +199,9 @@ class MenuBarController: NSObject {
 
     private func refreshOutputDeviceMenu() {
         outputDeviceMenu.removeAllItems()
-        let selectedUID = UserDefaults.standard.string(forKey: "selectedDeviceUID")
+        // FIX: read from player.selectedDeviceUID (authoritative) not UserDefaults
+        let selectedUID = player.selectedDeviceUID
 
-        // "System Default" option
         let defaultItem = NSMenuItem(
             title: "System Default",
             action: #selector(selectSystemDefault),
@@ -194,7 +211,7 @@ class MenuBarController: NSObject {
         defaultItem.state = (selectedUID == nil) ? .on : .off
         outputDeviceMenu.addItem(defaultItem)
 
-        if deviceManager.outputDevices.isEmpty {
+        guard !deviceManager.outputDevices.isEmpty else {
             outputDeviceMenu.addItem(
                 NSMenuItem(title: "No output devices found", action: nil, keyEquivalent: "")
             )
@@ -224,6 +241,7 @@ class MenuBarController: NSObject {
             startStopItem.title = "Stop"
         } else {
             stopTimer()
+            player.stop()
             startStopItem.title = "Start"
         }
         updateStatusIcon()
@@ -232,7 +250,7 @@ class MenuBarController: NSObject {
     @objc private func selectInterval(_ sender: NSMenuItem) {
         guard let minutes = sender.representedObject as? Int else { return }
         intervalMinutes = minutes
-        UserDefaults.standard.set(intervalMinutes, forKey: "intervalMinutes")
+        UserDefaults.standard.set(intervalMinutes, forKey: UDKey.intervalMinutes)
         intervalMenu.items.forEach { $0.state = ($0.representedObject as? Int == minutes) ? .on : .off }
         if isRunning {
             stopTimer()
@@ -243,13 +261,12 @@ class MenuBarController: NSObject {
     @objc private func setVolume(_ sender: NSMenuItem) {
         guard let level = sender.representedObject as? VolumeLevel else { return }
         player.volumeLevel = level
-        UserDefaults.standard.set(level.rawValue, forKey: "volumeLevel")
+        UserDefaults.standard.set(level.rawValue, forKey: UDKey.volumeLevel)
         volumeMenu.items.forEach { $0.state = ($0.representedObject as? VolumeLevel == level) ? .on : .off }
     }
 
     @objc private func selectSystemDefault() {
-        UserDefaults.standard.removeObject(forKey: "selectedDeviceUID")
-        // Rebuild engine to use the system default (no explicit device set)
+        UserDefaults.standard.removeObject(forKey: UDKey.selectedDeviceUID)
         player.resetToSystemDefault()
         refreshOutputDeviceMenu()
     }
@@ -258,7 +275,7 @@ class MenuBarController: NSObject {
         guard let device = sender.representedObject as? AudioDevice else { return }
         do {
             try player.setOutputDevice(device)
-            UserDefaults.standard.set(device.uid, forKey: "selectedDeviceUID")
+            UserDefaults.standard.set(device.uid, forKey: UDKey.selectedDeviceUID)
             refreshOutputDeviceMenu()
         } catch {
             showErrorAlert(message: "Could not route audio to \"\(device.name)\".\n\n\(error.localizedDescription)")
@@ -268,7 +285,7 @@ class MenuBarController: NSObject {
     @objc private func setDisconnectBehavior(_ sender: NSMenuItem) {
         guard let behavior = sender.representedObject as? DisconnectBehavior else { return }
         disconnectBehavior = behavior
-        UserDefaults.standard.set(behavior.rawValue, forKey: "disconnectBehavior")
+        UserDefaults.standard.set(behavior.rawValue, forKey: UDKey.disconnectBehavior)
         disconnectMenu.items.forEach {
             $0.state = ($0.representedObject as? DisconnectBehavior == behavior) ? .on : .off
         }
@@ -286,7 +303,7 @@ class MenuBarController: NSObject {
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
         player.setSoundFile(url)
-        UserDefaults.standard.set(url.path, forKey: "soundFilePath")
+        UserDefaults.standard.set(url.path, forKey: UDKey.soundFilePath)
     }
 
     @objc private func playNow() {
@@ -301,10 +318,18 @@ class MenuBarController: NSObject {
 
     private func startTimer() {
         let interval = TimeInterval(intervalMinutes * 60)
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            try? self?.player.play()
+        // FIX: capture timer locally to avoid force-unwrap; surface errors via notification
+        let t = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            do {
+                try self.player.play()
+            } catch {
+                // FIX: notify the user instead of silently swallowing the error
+                self.postPlaybackErrorNotification(error)
+            }
         }
-        RunLoop.main.add(timer!, forMode: .common)
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
     }
 
     private func stopTimer() {
@@ -321,17 +346,22 @@ class MenuBarController: NSObject {
     private func postDisconnectNotification(deviceName: String) {
         let content = UNMutableNotificationContent()
         content.title = "BirdAway: Output Device Disconnected"
-        let behaviorNote = disconnectBehavior == .fallback
+        let note = disconnectBehavior == .fallback
             ? "Falling back to system default output."
             : "Playback paused. Re-select a device to resume."
-        content.body = "\"\(deviceName)\" was disconnected. \(behaviorNote)"
+        content.body = "\"\(deviceName)\" was disconnected. \(note)"
         content.sound = .default
+        let request = UNNotificationRequest(identifier: "disconnect-\(deviceName)", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
 
-        let request = UNNotificationRequest(
-            identifier: "disconnect-\(deviceName)",
-            content: content,
-            trigger: nil
-        )
+    private func postPlaybackErrorNotification(_ error: Error) {
+        let content = UNMutableNotificationContent()
+        content.title = "BirdAway: Playback Failed"
+        content.body = error.localizedDescription
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: "playback-error-\(Date().timeIntervalSince1970)",
+                                            content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
 
@@ -355,16 +385,17 @@ extension MenuBarController: AudioDeviceManagerDelegate {
     }
 
     func deviceDidDisconnect(_ device: AudioDevice, manager: AudioDeviceManager) {
-        guard device.uid == UserDefaults.standard.string(forKey: "selectedDeviceUID") else { return }
+        guard device.uid == UserDefaults.standard.string(forKey: UDKey.selectedDeviceUID) else { return }
 
         postDisconnectNotification(deviceName: device.name)
 
         switch disconnectBehavior {
         case .pause:
+            // FIX: stop in-progress audio as well as the timer
+            player.stop()
             if isRunning { toggleRunning() }
         case .fallback:
-            // Clear the saved device; engine will use system default on next play
-            UserDefaults.standard.removeObject(forKey: "selectedDeviceUID")
+            UserDefaults.standard.removeObject(forKey: UDKey.selectedDeviceUID)
             player.resetToSystemDefault()
         }
 
