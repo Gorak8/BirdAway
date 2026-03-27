@@ -14,10 +14,12 @@ class MenuBarController: NSObject {
 
     // Menu items requiring dynamic updates
     private var startStopItem: NSMenuItem!
-    private var intervalItem:  NSMenuItem!
+    private var intervalMenu:  NSMenu!
     private var outputDeviceMenu: NSMenu!
     private var volumeMenu: NSMenu!
     private var disconnectMenu: NSMenu!
+
+    private static let intervalPresets = [1, 5, 10, 15, 30, 45, 60, 90, 120]
 
     private var isRunning = false
     private var intervalMinutes = 10
@@ -88,14 +90,11 @@ class MenuBarController: NSObject {
 
         menu.addItem(.separator())
 
-        // Interval
-        intervalItem = NSMenuItem(
-            title: "Interval: \(intervalMinutes) min",
-            action: #selector(changeInterval),
-            keyEquivalent: ""
-        )
-        intervalItem.target = self
-        menu.addItem(intervalItem)
+        // Interval submenu
+        let intervalParent = NSMenuItem(title: "Interval", action: nil, keyEquivalent: "")
+        intervalMenu = buildIntervalMenu()
+        intervalParent.submenu = intervalMenu
+        menu.addItem(intervalParent)
 
         // Volume submenu
         let volumeParent = NSMenuItem(title: "Volume", action: nil, keyEquivalent: "")
@@ -138,6 +137,19 @@ class MenuBarController: NSObject {
         )
         menu.addItem(quitItem)
         statusItem.menu = menu
+    }
+
+    private func buildIntervalMenu() -> NSMenu {
+        let m = NSMenu()
+        for minutes in MenuBarController.intervalPresets {
+            let label = minutes == 1 ? "1 min" : "\(minutes) min"
+            let item = NSMenuItem(title: label, action: #selector(selectInterval(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = minutes
+            item.state = (minutes == intervalMinutes) ? .on : .off
+            m.addItem(item)
+        }
+        return m
     }
 
     private func buildVolumeMenu() -> NSMenu {
@@ -217,30 +229,11 @@ class MenuBarController: NSObject {
         updateStatusIcon()
     }
 
-    @objc private func changeInterval() {
-        NSApp.activate(ignoringOtherApps: true)
-
-        let alert = NSAlert()
-        alert.messageText = "Set Playback Interval"
-        alert.informativeText = "Enter interval in minutes (1–120):"
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
-
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 120, height: 24))
-        field.stringValue = "\(intervalMinutes)"
-        alert.accessoryView = field
-        alert.window.initialFirstResponder = field
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        guard let value = Int(field.stringValue), (1...120).contains(value) else {
-            showErrorAlert(message: "Please enter a number between 1 and 120.")
-            return
-        }
-
-        intervalMinutes = value
-        intervalItem.title = "Interval: \(intervalMinutes) min"
+    @objc private func selectInterval(_ sender: NSMenuItem) {
+        guard let minutes = sender.representedObject as? Int else { return }
+        intervalMinutes = minutes
         UserDefaults.standard.set(intervalMinutes, forKey: "intervalMinutes")
-
+        intervalMenu.items.forEach { $0.state = ($0.representedObject as? Int == minutes) ? .on : .off }
         if isRunning {
             stopTimer()
             startTimer()
