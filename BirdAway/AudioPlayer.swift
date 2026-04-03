@@ -100,12 +100,33 @@ class AudioPlayer {
         soundFileURL = url
     }
 
+    private func validateAudioFilePath(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        return exists && !isDirectory.boolValue
+    }
+
     func play() throws {
         guard !isPlaying else { return }
 
-        // No custom sound — fall back to a system beep so "Play Now" is always audible
-        let url = soundFileURL ?? URL(fileURLWithPath: "/System/Library/Sounds/Ping.aiff")
-        let audioFile = try AVAudioFile(forReading: url)
+        var urlToPlay: URL? = nil
+        if let customURL = soundFileURL, validateAudioFilePath(customURL) {
+            urlToPlay = customURL
+        } else {
+            // No custom sound or invalid file path — fall back to a system beep so "Play Now" is always audible
+            if let libraryURL = FileManager.default.urls(for: .libraryDirectory, in: .systemDomainMask).first {
+                let pingURL = libraryURL.appendingPathComponent("Sounds/Ping.aiff")
+                if validateAudioFilePath(pingURL) {
+                    urlToPlay = pingURL
+                }
+            }
+        }
+
+        guard let finalURL = urlToPlay else {
+            throw BirdAwayError.fileNotFound
+        }
+
+        let audioFile = try AVAudioFile(forReading: finalURL)
 
         if !engine.isRunning {
             try engine.start()
@@ -129,11 +150,14 @@ class AudioPlayer {
 
 enum BirdAwayError: LocalizedError {
     case audioUnitUnavailable
+    case fileNotFound
 
     var errorDescription: String? {
         switch self {
         case .audioUnitUnavailable:
             return "The audio engine's output unit is not yet available. Try again after starting playback once."
+        case .fileNotFound:
+            return "The requested audio file could not be found or is invalid."
         }
     }
 }
