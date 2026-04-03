@@ -1,6 +1,5 @@
 import AppKit
 import UserNotifications
-import UniformTypeIdentifiers
 
 enum DisconnectBehavior: String {
     case fallback = "fallback"   // Keep running, use system default
