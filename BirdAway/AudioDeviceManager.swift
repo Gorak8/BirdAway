@@ -100,8 +100,9 @@ class AudioDeviceManager {
             let before = self.outputDevices
             self.refresh()
             let after = self.outputDevices
+            let afterUIDs = Set(after.map { $0.uid })
 
-            for old in before where !after.contains(where: { $0.uid == old.uid }) {
+            for old in before where !afterUIDs.contains(old.uid) {
                 self.delegate?.deviceDidDisconnect(old, manager: self)
             }
             self.delegate?.devicesDidChange(self)
