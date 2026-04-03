@@ -19,6 +19,12 @@ protocol AudioDeviceManagerDelegate: AnyObject {
 class AudioDeviceManager {
     static let shared = AudioDeviceManager()
 
+    private static let hardwareDevicesPropertyAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyDevices,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain
+    )
+
     weak var delegate: AudioDeviceManagerDelegate?
     private(set) var outputDevices: [AudioDevice] = []
 
@@ -40,11 +46,7 @@ class AudioDeviceManager {
     // MARK: - CoreAudio Enumeration
 
     private func enumerateOutputDevices() -> [AudioDevice] {
-        var propAddr = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
+        var propAddr = AudioDeviceManager.hardwareDevicesPropertyAddress
 
         var dataSize: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(
@@ -89,11 +91,7 @@ class AudioDeviceManager {
     // MARK: - Change Notifications
 
     private func startListening() {
-        var propAddr = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
+        var propAddr = AudioDeviceManager.hardwareDevicesPropertyAddress
 
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             guard let self else { return }
@@ -114,11 +112,7 @@ class AudioDeviceManager {
 
     deinit {
         guard let block = listenerBlock else { return }
-        var propAddr = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
+        var propAddr = AudioDeviceManager.hardwareDevicesPropertyAddress
         AudioObjectRemovePropertyListenerBlock(
             AudioObjectID(kAudioObjectSystemObject), &propAddr, DispatchQueue.main, block
         )
