@@ -18,6 +18,7 @@ enum VolumeLevel: String, CaseIterable {
 
 class AudioPlayer {
     static let shared = AudioPlayer()
+    private static let defaultSystemSoundURL = URL(fileURLWithPath: "/System/Library/Sounds/Ping.aiff")
 
     private var engine       = AVAudioEngine()
     private var playerNode   = AVAudioPlayerNode()
@@ -104,7 +105,7 @@ class AudioPlayer {
         guard !isPlaying else { return }
 
         // No custom sound — fall back to a system beep so "Play Now" is always audible
-        let url = soundFileURL ?? URL(fileURLWithPath: "/System/Library/Sounds/Ping.aiff")
+        let url = soundFileURL ?? AudioPlayer.defaultSystemSoundURL
         let audioFile = try AVAudioFile(forReading: url)
 
         if !engine.isRunning {
