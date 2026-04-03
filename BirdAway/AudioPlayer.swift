@@ -21,10 +21,10 @@ class AudioPlayer {
 
     private var engine       = AVAudioEngine()
     private var playerNode   = AVAudioPlayerNode()
-    private var isPlaying    = false
+    internal(set) var isPlaying    = false
 
     private(set) var soundFileURL: URL?
-    private(set) var selectedDeviceUID: String?
+    internal(set) var selectedDeviceUID: String?
 
     var volumeLevel: VolumeLevel = .medium {
         didSet { playerNode.volume = volumeLevel.floatValue }
