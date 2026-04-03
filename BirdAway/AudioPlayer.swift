@@ -19,8 +19,8 @@ enum VolumeLevel: String, CaseIterable {
 class AudioPlayer {
     static let shared = AudioPlayer()
 
-    private var engine       = AVAudioEngine()
-    private var playerNode   = AVAudioPlayerNode()
+    private var engine: AVAudioEngine!
+    private var playerNode: AVAudioPlayerNode!
     private var isPlaying    = false
 
     private(set) var soundFileURL: URL?
